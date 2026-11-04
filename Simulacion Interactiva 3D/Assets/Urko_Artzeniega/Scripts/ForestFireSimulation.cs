@@ -157,6 +157,21 @@ public class ForestFireSimulation : MonoBehaviour
         }
 
         displayTexture.SetPixels(pixels);
-        displayTexture.Apply();
+        displayTexture.Apply(); }
+
+    // Metdos pa conectar con la UI en escena
+    public void SetWindFactor(float value)
+    {
+        windFactor = value;
+    }
+
+    public void SetHumidity(float value)
+    {
+        humidity = value;
+    }
+
+    public void SetUpdateInterval(float value)
+    {
+        updateInterval = value;
     }
 }
