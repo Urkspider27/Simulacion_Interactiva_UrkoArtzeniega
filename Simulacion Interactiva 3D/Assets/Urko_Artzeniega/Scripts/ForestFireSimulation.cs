@@ -9,9 +9,9 @@ public class ForestFireSimulation : MonoBehaviour
     public float scale = 0.1f;
 
     [Header("Parámetros Interactivos (Modificables)")]
-    [Range(0f, 1f)] public float windFactor = 0.5f;     // Viento (Este)
-    [Range(0f, 1f)] public float humidity = 0.3f;      // Humedad
-    [Range(0.01f, 0.2f)] public float updateInterval = 0.1f;
+    [Range(-1f, 1f)] public float windFactor = 0.5f;      // Viento (-1 a 1)
+    [Range(0f, 1f)] public float humidity = 0.3f;       // Humedad global
+    [Range(0.02f, 0.5f)] public float updateInterval = 0.1f; // Intervalo seguro
 
     private int[,] grid; // 0: Vacío, 1: Árbol, 2: Ardiendo, 3: Quemado
     private float[,] moistureGrid;
@@ -24,7 +24,6 @@ public class ForestFireSimulation : MonoBehaviour
         quadRenderer = GetComponent<Renderer>();
         if (quadRenderer == null)
         {
-            // Crea un plano automático si no tiene
             GameObject plane = GameObject.CreatePrimitive(PrimitiveType.Quad);
             plane.transform.SetParent(transform);
             plane.transform.localPosition = Vector3.zero;
@@ -49,7 +48,6 @@ public class ForestFireSimulation : MonoBehaviour
             DrawGrid();
         }
 
-        // Reiniciar con la tecla R o botón
         if (Input.GetKeyDown(KeyCode.R))
         {
             InitializeGrid();
@@ -66,10 +64,9 @@ public class ForestFireSimulation : MonoBehaviour
             for (int y = 0; y < height; y++)
             {
                 moistureGrid[x, y] = Random.Range(0f, 1f);
-                // 80% árboles, 20% huecos vacíos iniciales
                 if (Random.value < 0.8f)
                 {
-                    grid[x, y] = 1; // arbol
+                    grid[x, y] = 1; // Árbol
                 }
                 else
                 {
@@ -78,8 +75,7 @@ public class ForestFireSimulation : MonoBehaviour
             }
         }
 
-        // Encender un foco inicial en el centro
-        grid[width / 2, height / 2] = 2;
+        grid[width / 2, height / 2] = 2; // Foco inicial en el centro
     }
 
     void StepSimulation()
@@ -90,15 +86,14 @@ public class ForestFireSimulation : MonoBehaviour
         {
             for (int y = 0; y < height; y++)
             {
-                if (grid[x, y] == 2) // Si está ardiendo pasa a quemado
+                if (grid[x, y] == 2)
                 {
-                    newGrid[x, y] = 3;
+                    newGrid[x, y] = 3; // Pasa a quemado
                 }
-                else if (grid[x, y] == 1) // Si es árbol, evaluar fuego vecino
+                else if (grid[x, y] == 1)
                 {
                     bool catchFire = false;
 
-                    // Revisar vecinos con peso de viento hacia la derecha (+X)
                     for (int dx = -1; dx <= 1; dx++)
                     {
                         for (int dy = -1; dy <= 1; dy++)
@@ -111,14 +106,18 @@ public class ForestFireSimulation : MonoBehaviour
                                 if (grid[nx, ny] == 2)
                                 {
                                     float probability = 0.4f;
-                                    // El viento favorece propagación si dx > 0
-                                    if (dx > 0) probability += windFactor * 0.4f;
-                                    // La humedad frena el fuego
-                                    if (moistureGrid[x, y] < humidity)
-                                    {
-                                        catchFire = true;
-                                    }
-                                    else if (Random.value < probability)
+
+                                    // Viento: favorece u obstaculiza según la dirección
+                                    if (dx > 0) probability += windFactor * 0.3f;
+                                    if (dx < 0) probability -= windFactor * 0.3f;
+
+                                    // Humedad: frena la propagación correctamente
+                                    float resistance = moistureGrid[x, y] * humidity;
+                                    probability -= resistance * 0.5f;
+
+                                    probability = Mathf.Clamp01(probability);
+
+                                    if (Random.value < probability)
                                     {
                                         catchFire = true;
                                     }
@@ -148,18 +147,19 @@ public class ForestFireSimulation : MonoBehaviour
                 int index = y * width + x;
                 switch (grid[x, y])
                 {
-                    case 0: pixels[index] = Color.black; break;       // Vacío
-                    case 1: pixels[index] = new Color(0.1f, 0.6f, 0.1f); break; // Árbol (Verde)
-                    case 2: pixels[index] = Color.red; break;       // Ardiendo (Rojo)
-                    case 3: pixels[index] = new Color(0.3f, 0.3f, 0.3f); break; // Quemado (Gris)
+                    case 0: pixels[index] = Color.black; break;
+                    case 1: pixels[index] = new Color(0.1f, 0.6f, 0.1f); break; // Árbol
+                    case 2: pixels[index] = Color.red; break;       // Ardiendo
+                    case 3: pixels[index] = new Color(0.3f, 0.3f, 0.3f); break; // Quemado
                 }
             }
         }
 
         displayTexture.SetPixels(pixels);
-        displayTexture.Apply(); }
+        displayTexture.Apply();
+    }
 
-    // Metdos pa conectar con la UI en escena
+    //  para la UI con protección para que no se buggee la velocidad
     public void SetWindFactor(float value)
     {
         windFactor = value;
@@ -172,6 +172,6 @@ public class ForestFireSimulation : MonoBehaviour
 
     public void SetUpdateInterval(float value)
     {
-        updateInterval = value;
+        updateInterval = Mathf.Max(0.02f, value);
     }
 }
